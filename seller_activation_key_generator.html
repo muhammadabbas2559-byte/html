@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="theme-color" content="#080808">
+  <title>obsidean entry preps — Private Seller Key Generator</title>
+  <style>
+    :root{--bg:#080808;--panel:#121212;--panel2:#191919;--line:#303030;--orange:#ff7900;--orange2:#ffa142;--text:#f7f2ec;--muted:#aaa39b;--good:#48c98a;--bad:#ff6868}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:22px;background:radial-gradient(circle at 12% 0,rgba(255,121,0,.17),transparent 32rem),var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}.shell{width:min(820px,100%);border:1px solid var(--line);border-radius:25px;overflow:hidden;background:var(--panel);box-shadow:0 28px 90px rgba(0,0,0,.5)}header{padding:29px clamp(24px,5vw,46px);border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:center}.mark{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:var(--orange);color:#080808;font-weight:950;font-size:1.25rem}header strong{display:block;text-transform:lowercase}header span{display:block;color:var(--muted);font-size:.7rem;margin-top:3px}.content{padding:clamp(26px,6vw,52px)}.eyebrow{color:var(--orange2);font-size:.7rem;font-weight:900;text-transform:uppercase;letter-spacing:.13em}h1{font-size:clamp(2rem,5vw,3.7rem);letter-spacing:-.055em;line-height:1;margin:8px 0 13px}p{color:var(--muted);font-size:.82rem;max-width:650px}.warning{border-left:3px solid var(--orange);padding:10px 12px;margin:21px 0;background:rgba(255,121,0,.09);border-radius:0 10px 10px 0;color:#d9c8b8;font-size:.72rem}.field{margin-top:22px}label{display:block;color:#d9d1c9;font-size:.68rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px}.entry{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}input,.output{width:100%;min-height:58px;border:1px solid var(--line);border-radius:13px;background:#090909;color:var(--text);font:900 clamp(1rem,3vw,1.32rem)/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.12em;padding:0 15px;text-align:center;text-transform:uppercase}.output{display:flex;align-items:center;justify-content:center;color:var(--orange2);user-select:all}.output.empty{color:#5d5650}.btn{min-height:50px;border:1px solid var(--line);border-radius:12px;padding:0 17px;background:var(--panel2);color:var(--text);font:850 .78rem/1 system-ui;cursor:pointer}.btn:hover:not(:disabled){border-color:var(--orange)}.btn-primary{width:100%;margin-top:11px;background:var(--orange);border-color:var(--orange);color:#080808}.btn:disabled{opacity:.38;cursor:not-allowed}.status{min-height:42px;margin-top:13px;padding:10px 12px;border:1px solid #292929;border-radius:10px;color:var(--muted);font-size:.7rem}.status.good{color:#9ee8c3;border-color:rgba(72,201,138,.4);background:rgba(72,201,138,.08)}.status.bad{color:#ffaaaa;border-color:rgba(255,104,104,.4);background:rgba(255,104,104,.08)}footer{padding:16px 25px;border-top:1px solid var(--line);color:#706a64;text-align:center;font-size:.62rem}@media(max-width:520px){body{padding:8px}.shell{border-radius:18px}.entry{grid-template-columns:1fr}.entry .btn{width:100%}input,.output{letter-spacing:.07em}}
+  </style>
+</head>
+<body>
+  <article class="shell">
+    <header><span class="mark">O</span><div><strong>obsidean entry preps</strong><span>Private offline seller utility · Activation algorithm v1</span></div></header>
+    <div class="content">
+      <div class="eyebrow">Seller-only licence tool</div><h1>Generate an Activation Key.</h1><p>Enter the customer’s eight-character Registration ID. This utility applies the exact same deterministic algorithm as the locked customer application and works without a network connection.</p>
+      <div class="warning"><b>Private operational file:</b> do not distribute this generator with the customer application. Keep it in controlled seller storage.</div>
+      <form id="sellerForm" novalidate>
+        <div class="field"><label for="registrationInput">Customer Registration ID</label><input id="registrationInput" type="text" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX"></div>
+        <button class="btn btn-primary" type="submit">Generate matching key →</button>
+      </form>
+      <div class="field"><label>Activation Key</label><div class="entry"><output class="output empty" id="activationOutput">XXXX-XXXX-XXXX</output><button class="btn" id="copyKeyButton" type="button" disabled>Copy key</button></div></div>
+      <div class="status" id="sellerStatus" role="status" aria-live="polite">Waiting for a Registration ID.</div>
+    </div>
+    <footer>Runs locally · No IDs or keys are transmitted · Keep this file private</footer>
+  </article>
+  <script>
+/*
+ * Private canonical activation algorithm source for “obsidean entry preps”.
+ * This file is shared by the customer build and private seller utility.
+ * It is intentionally dependency-free and uses explicitly unsigned 32-bit arithmetic.
+ */
+function createObsideanActivationAlgorithm() {
+  "use strict";
+
+  const ALGORITHM_VERSION = 1;
+  const SYMBOLS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const DOMAIN = "OBP|OFFLINE-ACTIVATION|V1";
+  const PROOF_DOMAIN = "OBP|LOCAL-LICENCE-PROOF|V1";
+
+  // Scrambled at rest; production obfuscation additionally encodes these strings.
+  const SALT_PARTS = [
+    "Z3SBEY38", "3Z9ATXU7", "1UYLFVUV",
+    "S99U74IL", "9DQL7IWW", "XOQ3RAP8"
+  ];
+  const SALT_ORDER = [1, 5, 3, 0, 4, 2];
+  const SEEDS = [0x4b2433d9, 0x21097163, 0xef1f7faa, 0x79784d55];
+  const ROUND_CONSTANTS = [
+    0x3a2cfdaf, 0x84ade98a, 0x9980e6eb, 0x73d3e4e6,
+    0xc3fc98f6, 0x7153df48, 0x1b5b8a08, 0xc7ad9e37,
+    0x9e3779b9, 0x85ebca6b, 0xc2b2ae35, 0x27d4eb2f
+  ];
+  const MULTIPLIERS = [0x85ebca6b, 0xc2b2ae35, 0x27d4eb2d, 0x165667b1];
+  const PERMUTATION = [5, 11, 2, 14, 8, 0, 13, 4, 15, 7, 1, 10, 3, 12, 6, 9];
+  const EXPECTED_SBOX_CHECKSUM = 0x2f2a625d;
+
+  const u32 = value => value >>> 0;
+  const rotl32 = (value, shift) => {
+    const amount = shift & 31;
+    return u32((value << amount) | (value >>> ((32 - amount) & 31)));
+  };
+  const rotl8 = (value, shift) => {
+    const amount = shift & 7;
+    const byte = value & 255;
+    return ((byte << amount) | (byte >>> ((8 - amount) & 7))) & 255;
+  };
+  const fmix32 = value => {
+    let output = u32(value);
+    output ^= output >>> 16;
+    output = Math.imul(output, 0x85ebca6b);
+    output ^= output >>> 13;
+    output = Math.imul(output, 0xc2b2ae35);
+    output ^= output >>> 16;
+    return u32(output);
+  };
+  const asciiBytes = value => Array.from(String(value), character => character.charCodeAt(0) & 255);
+  const reconstructSalt = () => SALT_ORDER.map(index => SALT_PARTS[index]).join("");
+
+  function normalizeRegistrationId(value) {
+    const canonical = String(value == null ? "" : value).toUpperCase().replace(/[\s-]+/g, "");
+    if (canonical.length !== 8 || Array.from(canonical).some(character => !SYMBOLS.includes(character))) {
+      throw new Error("Registration ID must contain exactly eight supported letters or digits.");
+    }
+    return canonical;
+  }
+
+  function normalizeActivationKey(value) {
+    const canonical = String(value == null ? "" : value).toUpperCase().replace(/[\s-]+/g, "");
+    if (canonical.length !== 12 || Array.from(canonical).some(character => !SYMBOLS.includes(character))) {
+      throw new Error("Activation Key must contain exactly twelve supported letters or digits.");
+    }
+    return canonical;
+  }
+
+  const formatRegistrationId = value => {
+    const canonical = normalizeRegistrationId(value);
+    return `${canonical.slice(0, 4)}-${canonical.slice(4)}`;
+  };
+
+  const formatActivationKey = value => {
+    const canonical = normalizeActivationKey(value);
+    return `${canonical.slice(0, 4)}-${canonical.slice(4, 8)}-${canonical.slice(8)}`;
+  };
+
+  function createSBox() {
+    const values = Array.from({length: 256}, (_, index) => index);
+    const salt = reconstructSalt();
+    let state = 0xd1b54a35;
+    for (let index = 0; index < salt.length; index += 1) {
+      state = fmix32(state ^ Math.imul(salt.charCodeAt(index) + index + 1, ROUND_CONSTANTS[index % ROUND_CONSTANTS.length]));
+    }
+    const next = () => {
+      state ^= state << 13;
+      state ^= state >>> 17;
+      state ^= state << 5;
+      state = u32(state + 0x9e3779b9);
+      return state;
+    };
+    for (let index = 255; index > 0; index -= 1) {
+      const other = next() % (index + 1);
+      [values[index], values[other]] = [values[other], values[index]];
+    }
+    return values;
+  }
+
+  const SBOX = createSBox();
+
+  function tableChecksum(values) {
+    let checksum = 2166136261;
+    values.forEach((value, index) => {
+      checksum ^= (value + Math.imul(index + 1, 131)) & 255;
+      checksum = Math.imul(checksum, 16777619);
+    });
+    return u32(checksum);
+  }
+
+  function verifyIntegrity(allowUnfrozenChecksum = false) {
+    const sboxValid = SBOX.length === 256 && new Set(SBOX).size === 256 && SBOX.every(value => Number.isInteger(value) && value >= 0 && value <= 255);
+    const permutationValid = PERMUTATION.length === 16 && new Set(PERMUTATION).size === 16 && PERMUTATION.every(value => Number.isInteger(value) && value >= 0 && value < 16);
+    const checksum = tableChecksum(SBOX);
+    const checksumValid = allowUnfrozenChecksum && EXPECTED_SBOX_CHECKSUM === 0 ? true : checksum === EXPECTED_SBOX_CHECKSUM;
+    return {ok: sboxValid && permutationValid && checksumValid, sboxValid, permutationValid, checksumValid, checksum};
+  }
+
+  function injectSalt(canonicalId) {
+    const idValues = Array.from(canonicalId, character => SYMBOLS.indexOf(character));
+    const idBytes = asciiBytes(canonicalId);
+    const saltBytes = asciiBytes(reconstructSalt());
+    const domainBytes = asciiBytes(DOMAIN);
+    const output = [];
+
+    output.push(0x4f, 0x42, 0x50, ALGORITHM_VERSION, canonicalId.length);
+    for (let position = 0; position < saltBytes.length; position += 1) {
+      const idIndex = (position * 5 + idValues[position % 8]) & 7;
+      const saltIndex = (position * 7 + idValues[(position + 3) & 7]) % saltBytes.length;
+      const mixedSalt = (rotl8(saltBytes[saltIndex], (position + idValues[idIndex]) & 7) ^ idBytes[idIndex] ^ ((position * 29 + 17) & 255)) & 255;
+      output.push(mixedSalt);
+      if ((position & 3) === (idValues[(position >>> 2) & 7] & 3)) {
+        output.push((idBytes[(idIndex + position) & 7] + saltBytes[position] + position) & 255);
+      }
+      if (position % 6 === 2) {
+        output.push(domainBytes[(position * 3 + idValues[idIndex]) % domainBytes.length]);
+      }
+    }
+    for (let index = 0; index < idBytes.length; index += 1) {
+      output.push((idBytes[7 - index] ^ saltBytes[(index * 11 + idValues[index]) % saltBytes.length] ^ (index * 37)) & 255);
+    }
+    let idChecksum = 0x6d;
+    idValues.forEach((value, index) => {
+      idChecksum = rotl8(idChecksum ^ value ^ (index * 41), (value + index) & 7);
+    });
+    output.push(idChecksum, output.length & 255, (output.length >>> 8) & 255);
+    return {message: output, idValues};
+  }
+
+  function multiPassMix(message, idValues) {
+    const state = SEEDS.map((seed, lane) => fmix32(seed ^ ROUND_CONSTANTS[lane] ^ Math.imul(idValues[lane] + 1, MULTIPLIERS[(lane + 1) & 3])));
+    const length = message.length;
+
+    for (let pass = 0; pass < 6; pass += 1) {
+      for (let step = 0; step < length; step += 1) {
+        const index = pass & 1 ? length - 1 - step : step;
+        const lane = (step + pass + idValues[(step + pass) & 7]) & 3;
+        const neighbour = (lane + 1) & 3;
+        const cross = (lane + 2) & 3;
+        const input = u32(message[index] + Math.imul(index + 1, 0x45d9f3b) + ROUND_CONSTANTS[(pass + lane) % ROUND_CONSTANTS.length]);
+        let mixed = u32(state[lane] ^ input ^ rotl32(state[neighbour], (message[index] + pass + lane) & 31));
+        mixed = Math.imul(mixed, MULTIPLIERS[(lane + pass) & 3]);
+        mixed = rotl32(mixed, 7 + ((index + pass * 3) % 19));
+        state[lane] = u32(mixed + state[neighbour] + ROUND_CONSTANTS[(index + pass) % ROUND_CONSTANTS.length]);
+        state[cross] = u32(state[cross] ^ rotl32(state[lane], 11 + ((step + lane) % 13)) ^ Math.imul(message[index] + 1, MULTIPLIERS[(pass + 2) & 3]));
+      }
+      const snapshot = state.slice();
+      for (let lane = 0; lane < 4; lane += 1) {
+        state[lane] = fmix32(snapshot[lane] + rotl32(snapshot[(lane + 1) & 3], 5 + pass) ^ snapshot[(lane + 3) & 3] ^ ROUND_CONSTANTS[(pass * 2 + lane) % ROUND_CONSTANTS.length]);
+      }
+    }
+    return state.map((value, lane) => fmix32(value ^ rotl32(state[(lane + 2) & 3], 9 + lane * 3) ^ ROUND_CONSTANTS[8 + lane]));
+  }
+
+  function substitutionPermutationNetwork(state, idValues) {
+    let block = [];
+    state.forEach(value => {
+      block.push(value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255);
+    });
+
+    const saltBytes = asciiBytes(reconstructSalt());
+    for (let index = 0; index < 16; index += 1) {
+      block[index] ^= saltBytes[(index * 13 + idValues[(index + 5) & 7]) % saltBytes.length];
+    }
+
+    for (let round = 0; round < 8; round += 1) {
+      const substituted = block.map((value, index) => {
+        const roundByte = (ROUND_CONSTANTS[(round + index) % ROUND_CONSTANTS.length] >>> ((index & 3) * 8)) & 255;
+        return SBOX[(value + idValues[(index + round) & 7] + roundByte + index * 17) & 255];
+      });
+      const permuted = new Array(16);
+      substituted.forEach((value, index) => {
+        permuted[PERMUTATION[index]] = value;
+      });
+      const snapshot = permuted.slice();
+      block = snapshot.map((value, index) => {
+        const left = rotl8(snapshot[(index + 5) & 15], 1 + ((round + index) % 7));
+        const right = (snapshot[(index + 11) & 15] + ((round + 1) * 23) + index * 19) & 255;
+        return (value ^ left ^ right ^ idValues[(index * 3 + round) & 7]) & 255;
+      });
+    }
+    return block;
+  }
+
+  function outputBytes(state, block) {
+    const blockWords = [];
+    for (let lane = 0; lane < 4; lane += 1) {
+      const base = lane * 4;
+      blockWords.push(u32(block[base] | (block[base + 1] << 8) | (block[base + 2] << 16) | (block[base + 3] << 24)));
+    }
+    let words = blockWords.map((word, lane) => fmix32(word ^ state[(lane + 1) & 3] ^ rotl32(blockWords[(lane + 2) & 3], 7 + lane * 5) ^ ROUND_CONSTANTS[lane + 4]));
+    const snapshot = words.slice();
+    words = snapshot.map((word, lane) => fmix32(word + rotl32(snapshot[(lane + 1) & 3], 11 + lane) ^ snapshot[(lane + 3) & 3] ^ state[lane]));
+    const bytes = [];
+    words.forEach(value => bytes.push(value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255));
+    return bytes;
+  }
+
+  function extractSymbols(bytes) {
+    let bitOffset = 0;
+    let output = "";
+    for (let symbolIndex = 0; symbolIndex < 12; symbolIndex += 1) {
+      const byteIndex = bitOffset >>> 3;
+      const shift = bitOffset & 7;
+      const pair = bytes[byteIndex] | ((bytes[byteIndex + 1] || 0) << 8);
+      output += SYMBOLS[(pair >>> shift) & 31];
+      bitOffset += 5;
+    }
+    return output;
+  }
+
+  function calculateActivationKey(registrationId) {
+    const integrity = verifyIntegrity();
+    if (!integrity.ok) throw new Error("Activation algorithm integrity check failed.");
+    const canonicalId = normalizeRegistrationId(registrationId);
+    const injected = injectSalt(canonicalId);
+    const state = multiPassMix(injected.message, injected.idValues);
+    const block = substitutionPermutationNetwork(state, injected.idValues);
+    return formatActivationKey(extractSymbols(outputBytes(state, block)));
+  }
+
+  function calculateLicenseProof(registrationId, activationKey) {
+    const canonicalId = normalizeRegistrationId(registrationId);
+    const canonicalKey = normalizeActivationKey(activationKey);
+    const bytes = asciiBytes(`${PROOF_DOMAIN}|${canonicalId}|${canonicalKey}|${ALGORITHM_VERSION}`);
+    let lanes = [0x811c9dc5, 0x9e3779b9, 0x243f6a88, 0xb7e15162];
+    for (let pass = 0; pass < 4; pass += 1) {
+      for (let step = 0; step < bytes.length; step += 1) {
+        const index = pass & 1 ? bytes.length - 1 - step : step;
+        const lane = (index + pass) & 3;
+        lanes[lane] = fmix32(Math.imul(lanes[lane] ^ bytes[index] ^ ROUND_CONSTANTS[(index + pass) % 12], MULTIPLIERS[(lane + pass) & 3]) + rotl32(lanes[(lane + 1) & 3], 5 + pass + lane));
+      }
+      const snapshot = lanes.slice();
+      lanes = snapshot.map((value, lane) => fmix32(value ^ rotl32(snapshot[(lane + 2) & 3], 5 + lane * 3) ^ ROUND_CONSTANTS[(pass * 3 + lane + 4) % ROUND_CONSTANTS.length] ^ Math.imul(lane + 1, 0x9e3779b9)));
+    }
+    const finalSnapshot = lanes.slice();
+    lanes = finalSnapshot.map((value, lane) => fmix32(value ^ rotl32(finalSnapshot[(lane + 1) & 3], 9 + lane * 5) ^ ROUND_CONSTANTS[8 + lane]));
+    return lanes.map(value => value.toString(16).padStart(8, "0")).join("").toUpperCase();
+  }
+
+  function safeEqual(left, right) {
+    const first = String(left);
+    const second = String(right);
+    let difference = first.length ^ second.length;
+    const length = Math.max(first.length, second.length);
+    for (let index = 0; index < length; index += 1) {
+      difference |= (first.charCodeAt(index % Math.max(1, first.length)) || 0) ^ (second.charCodeAt(index % Math.max(1, second.length)) || 0);
+    }
+    return difference === 0;
+  }
+
+  function validateActivationKey(registrationId, activationKey) {
+    try {
+      const expected = normalizeActivationKey(calculateActivationKey(registrationId));
+      const supplied = normalizeActivationKey(activationKey);
+      return safeEqual(expected, supplied);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  return Object.freeze({
+    version: ALGORITHM_VERSION,
+    symbols: SYMBOLS,
+    normalizeRegistrationId,
+    normalizeActivationKey,
+    formatRegistrationId,
+    formatActivationKey,
+    calculateActivationKey,
+    calculateLicenseProof,
+    validateActivationKey,
+    verifyIntegrity
+  });
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {createObsideanActivationAlgorithm};
+}
+
+(function(){
+  "use strict";
+  const activation=createObsideanActivationAlgorithm(),form=document.getElementById("sellerForm"),input=document.getElementById("registrationInput"),output=document.getElementById("activationOutput"),copy=document.getElementById("copyKeyButton"),status=document.getElementById("sellerStatus");
+  function setStatus(message,kind=""){status.textContent=message;status.className=`status ${kind}`.trim();}
+  function formatInput(){const raw=input.value.toUpperCase().replace(/[\s-]+/g,"").slice(0,8);input.value=[raw.slice(0,4),raw.slice(4,8)].filter(Boolean).join("-");}
+  function generate(event){event.preventDefault();try{const id=activation.normalizeRegistrationId(input.value),key=activation.calculateActivationKey(id);input.value=activation.formatRegistrationId(id);output.textContent=key;output.classList.remove("empty");copy.disabled=false;setStatus(`Key generated locally with activation algorithm v${activation.version}.`,"good");}catch(error){output.textContent="XXXX-XXXX-XXXX";output.classList.add("empty");copy.disabled=true;setStatus(error.message,"bad");}}
+  async function copyKey(){try{const text=output.textContent;if(navigator.clipboard&&navigator.clipboard.writeText)await navigator.clipboard.writeText(text);else{const area=document.createElement("textarea");area.value=text;area.style.position="fixed";area.style.opacity="0";document.body.appendChild(area);area.select();if(!document.execCommand||!document.execCommand("copy"))throw new Error("Clipboard unavailable");area.remove();}setStatus("Activation Key copied.","good");}catch(error){setStatus("Automatic copying is unavailable. Select and copy the displayed key manually.","");}}
+  input.addEventListener("input",formatInput);form.addEventListener("submit",generate);copy.addEventListener("click",copyKey);input.focus();
+  
+})();
+  </script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3ca4984fec2fd61',t:'MTc4OTY3MDkyOA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
